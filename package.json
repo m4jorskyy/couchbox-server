@@ -1,0 +1,13 @@
+{
+  "name": "couchbox-server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "npm --prefix ../../WebstormProjects/couchbox-web run build:remote && npx tauri dev --config tauri.conf.json",
+    "build": "npm --prefix ../../WebstormProjects/couchbox-web run build && npx tauri build --config tauri.conf.json"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.5"
+  }
+}
