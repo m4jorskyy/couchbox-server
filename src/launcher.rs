@@ -33,6 +33,20 @@ fn browser_candidates() -> Vec<(&'static str, PathBuf)> {
 
     vec![
         (
+            "Brave",
+            PathBuf::from(&program_files).join(r"BraveSoftware\Brave-Browser\Application\brave.exe"),
+        ),
+        (
+            "Brave",
+            PathBuf::from(&program_files_x86)
+                .join(r"BraveSoftware\Brave-Browser\Application\brave.exe"),
+        ),
+        (
+            "Brave",
+            PathBuf::from(&local_app_data)
+                .join(r"BraveSoftware\Brave-Browser\Application\brave.exe"),
+        ),
+        (
             "Google Chrome",
             PathBuf::from(&program_files).join(r"Google\Chrome\Application\chrome.exe"),
         ),
@@ -52,14 +66,6 @@ fn browser_candidates() -> Vec<(&'static str, PathBuf)> {
             "Microsoft Edge",
             PathBuf::from(&program_files).join(r"Microsoft\Edge\Application\msedge.exe"),
         ),
-        (
-            "Brave",
-            PathBuf::from(&program_files).join(r"BraveSoftware\Brave-Browser\Application\brave.exe"),
-        ),
-        (
-            "Brave",
-            PathBuf::from(&local_app_data).join(r"BraveSoftware\Brave-Browser\Application\brave.exe"),
-        ),
     ]
 }
 
@@ -67,12 +73,12 @@ fn browser_candidates() -> Vec<(&'static str, PathBuf)> {
 fn browser_candidates() -> Vec<(&'static str, PathBuf)> {
     vec![
         (
-            "Google Chrome",
-            PathBuf::from("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
-        ),
-        (
             "Brave",
             PathBuf::from("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"),
+        ),
+        (
+            "Google Chrome",
+            PathBuf::from("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
         ),
         (
             "Microsoft Edge",
@@ -88,11 +94,11 @@ fn browser_candidates() -> Vec<(&'static str, PathBuf)> {
 #[cfg(target_os = "linux")]
 fn browser_candidates() -> Vec<(&'static str, PathBuf)> {
     let bins = [
+        ("Brave", "brave-browser"),
         ("Google Chrome", "google-chrome"),
         ("Google Chrome", "google-chrome-stable"),
         ("Chromium", "chromium"),
         ("Chromium", "chromium-browser"),
-        ("Brave", "brave-browser"),
         ("Microsoft Edge", "microsoft-edge"),
     ];
     let mut found = Vec::new();
