@@ -175,8 +175,27 @@ fn execute_op(enigo: &mut Enigo, op: InputOp) {
             submit,
         } => match mode {
             TextMode::Type => {
-                if !value.is_empty() {
-                    let _ = enigo.text(&value);
+                for ch in value.chars() {
+                    match ch {
+                        ' ' => {
+                            let _ = enigo.key(Key::Space, Direction::Click);
+                        }
+                        '\n' | '\r' => {
+                            let _ = enigo.key(Key::Return, Direction::Click);
+                        }
+                        '\t' => {
+                            let _ = enigo.key(Key::Tab, Direction::Click);
+                        }
+                        other => {
+                            // YouTube TV ignores bulk KEYEVENTF_UNICODE / keycode-0 text injection,
+                            // so dispatch real per-character key clicks (falling back to text() only if needed).
+                            if enigo.key(Key::Unicode(other), Direction::Click).is_err() {
+                                let mut buf = [0u8; 4];
+                                let _ = enigo.text(other.encode_utf8(&mut buf));
+                            }
+                        }
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(8));
                 }
                 if submit {
                     let _ = enigo.key(Key::Return, Direction::Click);
