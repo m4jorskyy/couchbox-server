@@ -332,10 +332,17 @@ fn dispatch_command(state: &AxumState, cmd: RemoteCommand) {
             value,
             submit,
         } => {
+            // On YouTube TV, results update live as you type; pressing Return clicks
+            // whichever letter is highlighted on the on-screen keyboard instead of submitting!
+            let effective_submit = if active_app_id.as_deref() == Some("youtube") {
+                false
+            } else {
+                submit
+            };
             state.input.send(InputOp::Text {
                 mode,
                 value,
-                submit,
+                submit: effective_submit,
             });
         }
         RemoteCommand::Media { action } => {

@@ -186,16 +186,21 @@ fn execute_op(enigo: &mut Enigo, op: InputOp) {
                         '\t' => {
                             let _ = enigo.key(Key::Tab, Direction::Click);
                         }
+                        'A'..='Z' => {
+                            let lower = ch.to_ascii_lowercase();
+                            let _ = enigo.key(Key::Shift, Direction::Press);
+                            let _ = enigo.key(Key::Unicode(lower), Direction::Click);
+                            let _ = enigo.key(Key::Shift, Direction::Release);
+                        }
+                        c if c.is_ascii_lowercase() || c.is_ascii_digit() => {
+                            let _ = enigo.key(Key::Unicode(c), Direction::Click);
+                        }
                         other => {
-                            // YouTube TV ignores bulk KEYEVENTF_UNICODE / keycode-0 text injection,
-                            // so dispatch real per-character key clicks (falling back to text() only if needed).
-                            if enigo.key(Key::Unicode(other), Direction::Click).is_err() {
-                                let mut buf = [0u8; 4];
-                                let _ = enigo.text(other.encode_utf8(&mut buf));
-                            }
+                            let mut buf = [0u8; 4];
+                            let _ = enigo.text(other.encode_utf8(&mut buf));
                         }
                     }
-                    std::thread::sleep(std::time::Duration::from_millis(8));
+                    std::thread::sleep(std::time::Duration::from_millis(18));
                 }
                 if submit {
                     let _ = enigo.key(Key::Return, Direction::Click);
