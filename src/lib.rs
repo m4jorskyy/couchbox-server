@@ -1,3 +1,4 @@
+mod controller;
 mod input;
 mod launcher;
 mod power;
@@ -6,10 +7,11 @@ mod server;
 mod state;
 mod tunnel;
 
+use controller::{launch_app_by_id, open_custom_url, return_to_home};
 use input::InputController;
 use launcher::terminate_child;
 use protocol::{StreamingApp, TvSnapshot};
-use server::{launch_app_by_id, open_custom_url, return_to_home, start_server};
+use server::start_server;
 use state::{save_config, SharedRuntime};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tunnel::{detect_cloudflared, spawn_quick_tunnel};

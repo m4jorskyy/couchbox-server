@@ -1,7 +1,7 @@
+use crate::controller::{launch_app_by_id, open_custom_url, return_to_home, sync_active_child};
 use crate::input::{InputController, InputOp};
-use crate::launcher::{spawn_kiosk, spawn_kiosk_url, terminate_child};
 use crate::power::handle_power_action;
-use crate::protocol::{AppAction, NavAction, RemoteCommand, TvSnapshot};
+use crate::protocol::{AppAction, NavAction, RemoteCommand, RemoteSync};
 use crate::state::SharedRuntime;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
@@ -13,7 +13,7 @@ use futures_util::{SinkExt, StreamExt};
 use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tower_http::cors::CorsLayer;
 
 #[derive(Embed)]
@@ -38,7 +38,7 @@ struct PairRequest {
 #[serde(rename_all = "camelCase")]
 struct PairResponse {
     device_token: String,
-    snapshot: TvSnapshot,
+    state: RemoteSync,
 }
 
 #[derive(Deserialize)]
@@ -92,7 +92,7 @@ async fn pair_handler(
                 StatusCode::OK,
                 Json(PairResponse {
                     device_token,
-                    snapshot: snap,
+                    state: RemoteSync::from(&snap),
                 }),
             )
                 .into_response()
@@ -130,7 +130,7 @@ async fn handle_socket(socket: WebSocket, state: AxumState) {
 
     if let Ok(json) = serde_json::to_string(&serde_json::json!({
         "type": "state_sync",
-        "snapshot": initial
+        "state": RemoteSync::from(&initial)
     })) {
         let _ = ws_tx.send(Message::Text(json.into())).await;
     }
@@ -139,7 +139,7 @@ async fn handle_socket(socket: WebSocket, state: AxumState) {
         while let Ok(snap) = sync_rx.recv().await {
             if let Ok(json) = serde_json::to_string(&serde_json::json!({
                 "type": "state_sync",
-                "snapshot": snap
+                "state": RemoteSync::from(&snap)
             })) {
                 if ws_tx.send(Message::Text(json.into())).await.is_err() {
                     break;
@@ -166,135 +166,8 @@ async fn handle_socket(socket: WebSocket, state: AxumState) {
     let _ = state.app_handle.emit("tv:snapshot", &updated);
 }
 
-pub fn launch_app_by_id(
-    runtime: &SharedRuntime,
-    app_handle: &AppHandle,
-    app_id: &str,
-) -> Result<TvSnapshot, String> {
-    let (browser, app_cfg) = {
-        let mut s = runtime.inner.lock().unwrap();
-        if let Some(mut child) = s.active_child.take() {
-            terminate_child(&mut child);
-        }
-        let browser = s
-            .browser
-            .clone()
-            .ok_or_else(|| "No Chrome, Edge, or Brave browser found on this laptop.".to_string())?;
-        let app_cfg = s
-            .config
-            .apps
-            .iter()
-            .find(|a| a.id == app_id)
-            .cloned()
-            .ok_or_else(|| format!("Unknown app id: {}", app_id))?;
-        (browser, app_cfg)
-    };
-
-    let child = spawn_kiosk(&browser, &app_cfg)?;
-
-    {
-        let mut s = runtime.inner.lock().unwrap();
-        s.active_child = Some(child);
-        s.active_app_id = Some(app_cfg.id.clone());
-        s.active_app_name = app_cfg.name.clone();
-    }
-
-    // Move TV window out of the way so the kiosk browser receives immediate keyboard focus
-    if let Some(win) = app_handle.get_webview_window("main") {
-        let _ = win.minimize();
-    }
-
-    let snap = runtime.broadcast();
-    let _ = app_handle.emit("tv:snapshot", &snap);
-    Ok(snap)
-}
-
-pub fn open_custom_url(
-    runtime: &SharedRuntime,
-    app_handle: &AppHandle,
-    url: &str,
-) -> Result<TvSnapshot, String> {
-    let trimmed = url.trim();
-    if trimmed.is_empty() {
-        return Err("URL cannot be empty".to_string());
-    }
-    let normalized = if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
-        trimmed.to_string()
-    } else {
-        format!("https://{}", trimmed)
-    };
-
-    let browser = {
-        let mut s = runtime.inner.lock().unwrap();
-        if let Some(mut child) = s.active_child.take() {
-            terminate_child(&mut child);
-        }
-        s.browser
-            .clone()
-            .ok_or_else(|| "No Chrome, Edge, or Brave browser found on this laptop.".to_string())?
-    };
-
-    let ua_mode = if normalized.contains("youtube.com/tv") {
-        "tv"
-    } else {
-        "default"
-    };
-
-    let child = spawn_kiosk_url(&browser, &normalized, ua_mode)?;
-
-    {
-        let mut s = runtime.inner.lock().unwrap();
-        s.active_child = Some(child);
-        s.active_app_id = Some("custom_url".to_string());
-        s.active_app_name = normalized.clone();
-    }
-
-    if let Some(win) = app_handle.get_webview_window("main") {
-        let _ = win.minimize();
-    }
-
-    let snap = runtime.broadcast();
-    let _ = app_handle.emit("tv:snapshot", &snap);
-    Ok(snap)
-}
-
-pub fn return_to_home(runtime: &SharedRuntime, app_handle: &AppHandle) -> TvSnapshot {
-    {
-        let mut s = runtime.inner.lock().unwrap();
-        if let Some(mut child) = s.active_child.take() {
-            terminate_child(&mut child);
-        }
-        s.active_app_id = None;
-        s.active_app_name = "Home".to_string();
-    }
-
-    if let Some(win) = app_handle.get_webview_window("main") {
-        let _ = win.unminimize();
-        let _ = win.show();
-        let _ = win.set_focus();
-    }
-
-    let snap = runtime.broadcast();
-    let _ = app_handle.emit("tv:snapshot", &snap);
-    snap
-}
-
 fn dispatch_command(state: &AxumState, cmd: RemoteCommand) {
-    let (on_home, active_app_id) = {
-        let mut s = state.runtime.inner.lock().unwrap();
-        // If user closed the browser manually, sync back to Home automatically
-        let child_exited = s
-            .active_child
-            .as_mut()
-            .map(|c| matches!(c.try_wait(), Ok(Some(_))))
-            .unwrap_or(false);
-        if child_exited {
-            s.active_child = None;
-            s.active_app_id = None;
-            s.active_app_name = "Home".to_string();
-        }
-        (s.active_app_id.is_none(), s.active_app_id.clone())
-    };
+    let (on_home, active_app_id) = sync_active_child(&state.runtime);
 
     match cmd {
         RemoteCommand::Nav { action } => match action {
@@ -333,7 +206,7 @@ fn dispatch_command(state: &AxumState, cmd: RemoteCommand) {
             submit,
         } => {
             // On YouTube TV, results update live as you type; pressing Return clicks
-            // whichever letter is highlighted on the on-screen keyboard instead of submitting!
+            // whichever letter is highlighted on the on-screen keyboard instead of submitting.
             let effective_submit = if active_app_id.as_deref() == Some("youtube") {
                 false
             } else {

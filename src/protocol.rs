@@ -134,3 +134,23 @@ pub struct TvSnapshot {
     pub pairing: PairingInfo,
     pub setup: SetupStatus,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteSync {
+    pub active_app_id: Option<String>,
+    pub active_app_name: String,
+    pub apps: Vec<StreamingApp>,
+    pub connected_phones: usize,
+}
+
+impl From<&TvSnapshot> for RemoteSync {
+    fn from(snap: &TvSnapshot) -> Self {
+        Self {
+            active_app_id: snap.active_app_id.clone(),
+            active_app_name: snap.active_app_name.clone(),
+            apps: snap.apps.clone(),
+            connected_phones: snap.connected_phones,
+        }
+    }
+}

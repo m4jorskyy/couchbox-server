@@ -1,5 +1,4 @@
 use crate::protocol::StreamingApp;
-use crate::state::browser_profile_dir;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
@@ -115,18 +114,22 @@ fn browser_candidates() -> Vec<(&'static str, PathBuf)> {
     found
 }
 
-pub fn spawn_kiosk(browser: &BrowserInfo, app: &StreamingApp) -> Result<Child, String> {
-    spawn_kiosk_url(browser, &app.url, &app.user_agent_mode)
+pub fn spawn_kiosk(
+    browser: &BrowserInfo,
+    app: &StreamingApp,
+    profile_dir: &Path,
+) -> Result<Child, String> {
+    spawn_kiosk_url(browser, &app.url, &app.user_agent_mode, profile_dir)
 }
 
 pub fn spawn_kiosk_url(
     browser: &BrowserInfo,
     url: &str,
     user_agent_mode: &str,
+    profile_dir: &Path,
 ) -> Result<Child, String> {
-    let profile = browser_profile_dir();
     let mut cmd = Command::new(&browser.path);
-    cmd.arg(format!("--user-data-dir={}", profile.display()))
+    cmd.arg(format!("--user-data-dir={}", profile_dir.display()))
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
         .arg("--autoplay-policy=no-user-gesture-required")

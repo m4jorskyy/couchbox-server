@@ -56,6 +56,15 @@ pub fn default_apps() -> Vec<StreamingApp> {
             user_agent_mode: "default".into(),
             built_in: true,
         },
+        StreamingApp {
+            id: "spotify".into(),
+            name: "Spotify".into(),
+            url: "https://open.spotify.com".into(),
+            accent: "#1DB954".into(),
+            subtitle: "Music, playlists & podcasts".into(),
+            user_agent_mode: "default".into(),
+            built_in: true,
+        },
     ]
 }
 
@@ -80,8 +89,15 @@ pub fn load_config() -> PersistentConfig {
     let path = config_path();
     if let Ok(raw) = fs::read_to_string(&path) {
         if let Ok(mut cfg) = serde_json::from_str::<PersistentConfig>(&raw) {
-            if cfg.apps.is_empty() {
-                cfg.apps = default_apps();
+            let mut changed = false;
+            for builtin in default_apps() {
+                if !cfg.apps.iter().any(|a| a.id == builtin.id) {
+                    cfg.apps.push(builtin);
+                    changed = true;
+                }
+            }
+            if changed {
+                save_config(&cfg);
             }
             return cfg;
         }
